@@ -2,7 +2,7 @@ package redis
 
 import "github.com/redis/go-redis/v9"
 
-type RedisConfig struct {
+type Config struct {
 	redis *redis.Client
 
 	Addr     string `json:"addr"     yaml:"addr"`
@@ -10,7 +10,7 @@ type RedisConfig struct {
 	DB       int    `json:"db"       yaml:"db"`
 }
 
-func (c RedisConfig) Redis() *redis.Client {
+func (c *Config) Redis() *redis.Client {
 	if c.redis != nil {
 		return c.redis
 	}

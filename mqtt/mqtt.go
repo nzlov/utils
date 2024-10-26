@@ -2,7 +2,7 @@ package mqtt
 
 import mqtt "github.com/eclipse/paho.mqtt.golang"
 
-type MqttConfig struct {
+type Config struct {
 	mqtt mqtt.Client
 
 	Host     string `json:"host"   yaml:"host"   mapstructure:"host"`
@@ -11,7 +11,7 @@ type MqttConfig struct {
 	ClientID string `json:"client"   yaml:"client"   mapstructure:"client"`
 }
 
-func (c *MqttConfig) Mqtt() mqtt.Client {
+func (c *Config) Mqtt() mqtt.Client {
 	if c.mqtt != nil {
 		return c.mqtt
 	}
@@ -22,7 +22,7 @@ func (c *MqttConfig) Mqtt() mqtt.Client {
 	return m
 }
 
-func (c *MqttConfig) Open() (mqtt.Client, error) {
+func (c *Config) Open() (mqtt.Client, error) {
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(c.Host)
 	opts.SetClientID(c.ClientID)
