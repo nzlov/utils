@@ -1,6 +1,9 @@
 package slog
 
-import "log/slog"
+import (
+	"fmt"
+	"log/slog"
+)
 
 type Writer struct {
 	log *slog.Logger
@@ -13,4 +16,8 @@ func NewWriter(log *slog.Logger) *Writer {
 func (w *Writer) Write(p []byte) (n int, err error) {
 	w.log.Info(string(p))
 	return len(p), nil
+}
+
+func (w *Writer) Printf(f string, args ...interface{}) {
+	w.log.Info(fmt.Sprintf(f, args...))
 }

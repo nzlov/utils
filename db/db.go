@@ -41,10 +41,21 @@ func (d *Config) DB() *gorm.DB {
 	return db
 }
 
-func (d *Config) Open() (*gorm.DB, error) {
+type Option func(*gorm.Config)
+
+func NewLoggerOp(logger logger.Interface) func(*gorm.Config) {
+	return func(cfg *gorm.Config) {
+		cfg.Logger = logger
+	}
+}
+
+func (d *Config) Open(ops ...Option) (*gorm.DB, error) {
 	cfg := gorm.Config{
 		TranslateError: true,
 		Logger:         logger.Default.LogMode(logger.Info),
+	}
+	for _, op := range ops {
+		op(&cfg)
 	}
 	var err error
 	switch d.Driver {
