@@ -33,17 +33,22 @@ func LoadConfig[T Config[T]]() (*T, error) {
 	}
 
 	{
+		ho := &slog.HandlerOptions{
+			AddSource: true,
+			ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+				if a.Key == slog.MessageKey {
+					a.Key = "message"
+				}
+				return a
+			},
+		}
 		if obj.Release() {
 			slog.SetDefault(
-				slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-					AddSource: true,
-				})),
+				slog.New(slog.NewJSONHandler(os.Stderr, ho)),
 			)
 		} else {
 			slog.SetDefault(
-				slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-					AddSource: true,
-				})),
+				slog.New(slog.NewTextHandler(os.Stderr, ho)),
 			)
 		}
 	}
