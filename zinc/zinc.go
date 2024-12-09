@@ -84,7 +84,9 @@ func (c *Config) PushStrCheck(data string) error {
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		data, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("push failed code[%d]:%s", resp.StatusCode, string(data))
+		err := fmt.Errorf("push failed code[%d]:%s", resp.StatusCode, string(data))
+		fmt.Println("[ZINC]", err)
+		return err
 	}
 	return nil
 }
