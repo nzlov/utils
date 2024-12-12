@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"io"
 	"log/slog"
 	"os"
 
@@ -18,6 +19,39 @@ func (b BaseConfig) Release() bool {
 
 type Config[T any] interface {
 	Release() bool
+}
+
+func LoadConfigReader[T Config[T]](reader io.Reader) (*T, error) {
+	var obj T
+	if err := viper.ReadConfig(reader); err != nil {
+		return nil, err
+	}
+	if err := viper.Unmarshal(&obj); err != nil {
+		return nil, err
+	}
+
+	{
+		ho := &slog.HandlerOptions{
+			AddSource: true,
+			ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+				if a.Key == slog.MessageKey {
+					a.Key = "message"
+				}
+				return a
+			},
+		}
+		if obj.Release() {
+			slog.SetDefault(
+				slog.New(slog.NewJSONHandler(os.Stderr, ho)),
+			)
+		} else {
+			slog.SetDefault(
+				slog.New(slog.NewTextHandler(os.Stderr, ho)),
+			)
+		}
+	}
+
+	return &obj, nil
 }
 
 func LoadConfig[T Config[T]]() (*T, error) {
