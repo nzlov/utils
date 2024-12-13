@@ -4,6 +4,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -22,6 +23,10 @@ type Config[T any] interface {
 }
 
 func LoadConfigReader[T Config[T]](reader io.Reader) (*T, error) {
+	viper.SetConfigType("yaml")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.AutomaticEnv()
+
 	var obj T
 	if err := viper.ReadConfig(reader); err != nil {
 		return nil, err
@@ -58,6 +63,9 @@ func LoadConfig[T Config[T]]() (*T, error) {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.AutomaticEnv()
+
 	var obj T
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, err
