@@ -17,9 +17,10 @@ import (
 )
 
 type Config struct {
-	SSL      bool              `json:"ssl" yaml:"ssl" mapstructure:"ssl"`
-	Endpoint string            `json:"endpoint" yaml:"endpoint" mapstructure:"endpoint"`
-	Headers  map[string]string `json:"headers" yaml:"headers" mapstructure:"headers"`
+	SSL         bool              `json:"ssl" yaml:"ssl" mapstructure:"ssl"`
+	Endpoint    string            `json:"endpoint" yaml:"endpoint" mapstructure:"endpoint"`
+	EndpointURL string            `json:"endpoint_url" yaml:"endpoint_url" mapstructure:"endpoint_url"`
+	Headers     map[string]string `json:"headers" yaml:"headers" mapstructure:"headers"`
 }
 
 // setupOTelSDK bootstraps the OpenTelemetry pipeline.
@@ -92,6 +93,10 @@ func newTraceProvider(cfg Config) (*trace.TracerProvider, error) {
 		opts = append(opts, otlptracehttp.WithEndpoint(cfg.Endpoint))
 	}
 
+	if cfg.EndpointURL != "" {
+		opts = append(opts, otlptracehttp.WithEndpointURL(cfg.EndpointURL))
+	}
+
 	if !cfg.SSL {
 		opts = append(opts, otlptracehttp.WithInsecure())
 	}
@@ -124,6 +129,10 @@ func newMeterProvider(cfg Config) (*metric.MeterProvider, error) {
 		opts = append(opts, otlpmetrichttp.WithEndpoint(cfg.Endpoint))
 	}
 
+	if cfg.EndpointURL != "" {
+		opts = append(opts, otlpmetrichttp.WithEndpointURL(cfg.EndpointURL))
+	}
+
 	if !cfg.SSL {
 		opts = append(opts, otlpmetrichttp.WithInsecure())
 	}
@@ -152,6 +161,10 @@ func newLoggerProvider(cfg Config) (*log.LoggerProvider, error) {
 
 	if cfg.Endpoint != "" {
 		opts = append(opts, otlploghttp.WithEndpoint(cfg.Endpoint))
+	}
+
+	if cfg.EndpointURL != "" {
+		opts = append(opts, otlploghttp.WithEndpointURL(cfg.EndpointURL))
 	}
 
 	if !cfg.SSL {
