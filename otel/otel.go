@@ -17,8 +17,10 @@ import (
 )
 
 type Config struct {
-	Token  string `json:"token" yaml:"token" mapstructure:"token"`
-	Stream string `json:"stream" yaml:"stream" mapstructure:"stream"`
+	SSL      bool   `json:"ssl" yaml:"ssl" mapstructure:"ssl"`
+	Endpoint string `json:"endpoint" yaml:"endpoint" mapstructure:"endpoint"`
+	Token    string `json:"token" yaml:"token" mapstructure:"token"`
+	Stream   string `json:"stream" yaml:"stream" mapstructure:"stream"`
 }
 
 // setupOTelSDK bootstraps the OpenTelemetry pipeline.
@@ -90,10 +92,18 @@ func newPropagator(cfg Config) propagation.TextMapPropagator {
 }
 
 func newTraceProvider(cfg Config, headers map[string]string) (*trace.TracerProvider, error) {
+	opts := []otlptracehttp.Option{
+		otlptracehttp.WithEndpoint(cfg.Endpoint),
+		otlptracehttp.WithHeaders(headers),
+	}
+
+	if !cfg.SSL {
+		opts = append(opts, otlptracehttp.WithInsecure())
+	}
+
 	traceExporter, err := otlptracehttp.New(
 		context.Background(),
-		otlptracehttp.WithInsecure(),
-		otlptracehttp.WithHeaders(headers),
+		opts...,
 	)
 	if err != nil {
 		return nil, err
@@ -109,10 +119,18 @@ func newTraceProvider(cfg Config, headers map[string]string) (*trace.TracerProvi
 }
 
 func newMeterProvider(cfg Config, headers map[string]string) (*metric.MeterProvider, error) {
+	opts := []otlpmetrichttp.Option{
+		otlpmetrichttp.WithEndpoint(cfg.Endpoint),
+		otlpmetrichttp.WithHeaders(headers),
+	}
+
+	if !cfg.SSL {
+		opts = append(opts, otlpmetrichttp.WithInsecure())
+	}
+
 	metricExporter, err := otlpmetrichttp.New(
 		context.Background(),
-		otlpmetrichttp.WithInsecure(),
-		otlpmetrichttp.WithHeaders(headers),
+		opts...,
 	)
 	if err != nil {
 		return nil, err
@@ -126,10 +144,18 @@ func newMeterProvider(cfg Config, headers map[string]string) (*metric.MeterProvi
 }
 
 func newLoggerProvider(cfg Config, headers map[string]string) (*log.LoggerProvider, error) {
+	opts := []otlploghttp.Option{
+		otlploghttp.WithEndpoint(cfg.Endpoint),
+		otlploghttp.WithHeaders(headers),
+	}
+
+	if !cfg.SSL {
+		opts = append(opts, otlploghttp.WithInsecure())
+	}
+
 	logExporter, err := otlploghttp.New(
 		context.Background(),
-		otlploghttp.WithInsecure(),
-		otlploghttp.WithHeaders(headers),
+		opts...,
 	)
 	if err != nil {
 		return nil, err
