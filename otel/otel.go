@@ -17,10 +17,9 @@ import (
 )
 
 type Config struct {
-	SSL      bool   `json:"ssl" yaml:"ssl" mapstructure:"ssl"`
-	Endpoint string `json:"endpoint" yaml:"endpoint" mapstructure:"endpoint"`
-	Token    string `json:"token" yaml:"token" mapstructure:"token"`
-	Stream   string `json:"stream" yaml:"stream" mapstructure:"stream"`
+	SSL      bool              `json:"ssl" yaml:"ssl" mapstructure:"ssl"`
+	Endpoint string            `json:"endpoint" yaml:"endpoint" mapstructure:"endpoint"`
+	Headers  map[string]string `json:"headers" yaml:"headers" mapstructure:"headers"`
 }
 
 // setupOTelSDK bootstraps the OpenTelemetry pipeline.
@@ -45,17 +44,12 @@ func (cfg Config) SetupOTelSDK(ctx context.Context) (shutdown func(context.Conte
 		err = errors.Join(inErr, shutdown(ctx))
 	}
 
-	headers := map[string]string{
-		"Authorization": "Basic " + cfg.Token,
-		"stream-name":   cfg.Stream,
-	}
-
 	// Set up propagator.
 	prop := newPropagator(cfg)
 	otel.SetTextMapPropagator(prop)
 
 	// Set up trace provider.
-	tracerProvider, err := newTraceProvider(cfg, headers)
+	tracerProvider, err := newTraceProvider(cfg)
 	if err != nil {
 		handleErr(err)
 		return
@@ -64,7 +58,7 @@ func (cfg Config) SetupOTelSDK(ctx context.Context) (shutdown func(context.Conte
 	otel.SetTracerProvider(tracerProvider)
 
 	// Set up meter provider.
-	meterProvider, err := newMeterProvider(cfg, headers)
+	meterProvider, err := newMeterProvider(cfg)
 	if err != nil {
 		handleErr(err)
 		return
@@ -73,7 +67,7 @@ func (cfg Config) SetupOTelSDK(ctx context.Context) (shutdown func(context.Conte
 	otel.SetMeterProvider(meterProvider)
 
 	// Set up logger provider.
-	loggerProvider, err := newLoggerProvider(cfg, headers)
+	loggerProvider, err := newLoggerProvider(cfg)
 	if err != nil {
 		handleErr(err)
 		return
@@ -91,14 +85,19 @@ func newPropagator(cfg Config) propagation.TextMapPropagator {
 	)
 }
 
-func newTraceProvider(cfg Config, headers map[string]string) (*trace.TracerProvider, error) {
-	opts := []otlptracehttp.Option{
-		otlptracehttp.WithEndpoint(cfg.Endpoint),
-		otlptracehttp.WithHeaders(headers),
+func newTraceProvider(cfg Config) (*trace.TracerProvider, error) {
+	opts := []otlptracehttp.Option{}
+
+	if cfg.Endpoint != "" {
+		opts = append(opts, otlptracehttp.WithEndpoint(cfg.Endpoint))
 	}
 
 	if !cfg.SSL {
 		opts = append(opts, otlptracehttp.WithInsecure())
+	}
+
+	if cfg.Headers != nil {
+		opts = append(opts, otlptracehttp.WithHeaders(cfg.Headers))
 	}
 
 	traceExporter, err := otlptracehttp.New(
@@ -118,14 +117,19 @@ func newTraceProvider(cfg Config, headers map[string]string) (*trace.TracerProvi
 	return traceProvider, nil
 }
 
-func newMeterProvider(cfg Config, headers map[string]string) (*metric.MeterProvider, error) {
-	opts := []otlpmetrichttp.Option{
-		otlpmetrichttp.WithEndpoint(cfg.Endpoint),
-		otlpmetrichttp.WithHeaders(headers),
+func newMeterProvider(cfg Config) (*metric.MeterProvider, error) {
+	opts := []otlpmetrichttp.Option{}
+
+	if cfg.Endpoint != "" {
+		opts = append(opts, otlpmetrichttp.WithEndpoint(cfg.Endpoint))
 	}
 
 	if !cfg.SSL {
 		opts = append(opts, otlpmetrichttp.WithInsecure())
+	}
+
+	if cfg.Headers != nil {
+		opts = append(opts, otlpmetrichttp.WithHeaders(cfg.Headers))
 	}
 
 	metricExporter, err := otlpmetrichttp.New(
@@ -143,14 +147,19 @@ func newMeterProvider(cfg Config, headers map[string]string) (*metric.MeterProvi
 	return meterProvider, nil
 }
 
-func newLoggerProvider(cfg Config, headers map[string]string) (*log.LoggerProvider, error) {
-	opts := []otlploghttp.Option{
-		otlploghttp.WithEndpoint(cfg.Endpoint),
-		otlploghttp.WithHeaders(headers),
+func newLoggerProvider(cfg Config) (*log.LoggerProvider, error) {
+	opts := []otlploghttp.Option{}
+
+	if cfg.Endpoint != "" {
+		opts = append(opts, otlploghttp.WithEndpoint(cfg.Endpoint))
 	}
 
 	if !cfg.SSL {
 		opts = append(opts, otlploghttp.WithInsecure())
+	}
+
+	if cfg.Headers != nil {
+		opts = append(opts, otlploghttp.WithHeaders(cfg.Headers))
 	}
 
 	logExporter, err := otlploghttp.New(
