@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -30,15 +31,25 @@ type Config struct {
 	URL    string `json:"url"    yaml:"url"`
 }
 
-func (d *Config) DB() *gorm.DB {
-	if d.db != nil {
-		return d.db
+func (c *Config) DB() *gorm.DB {
+	if c.db != nil {
+		return c.db
 	}
-	db, err := d.Open()
+	db, err := c.Open()
 	if err != nil {
 		panic(err)
 	}
 	return db
+}
+
+var _kvCtxKey = "nzlov@Gorm"
+
+func For(ctx context.Context) *gorm.DB {
+	return ctx.Value(_kvCtxKey).(*gorm.DB)
+}
+
+func (c *Config) Ctx(ctx context.Context) context.Context {
+	return context.WithValue(ctx, _kvCtxKey, c.DB())
 }
 
 type Option func(*gorm.Config)

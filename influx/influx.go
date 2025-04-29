@@ -1,6 +1,8 @@
 package influx
 
 import (
+	"context"
+
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	"github.com/influxdata/influxdb-client-go/v2/api"
 )
@@ -32,4 +34,14 @@ func (c *Config) BucketWriter(b string) api.WriteAPI {
 
 func (c *Config) Query() api.QueryAPI {
 	return c.Influx().QueryAPI(c.Org)
+}
+
+var _kvCtxKey = "nzlov@Influxdb"
+
+func For(ctx context.Context) *Config {
+	return ctx.Value(_kvCtxKey).(*Config)
+}
+
+func (c *Config) Ctx(ctx context.Context) context.Context {
+	return context.WithValue(ctx, _kvCtxKey, c)
 }
