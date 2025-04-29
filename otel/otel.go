@@ -9,6 +9,9 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/exporters/stdout/stdoutlog"
+	"go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/log"
@@ -17,15 +20,12 @@ import (
 )
 
 type Config struct {
-	SSL         bool              `json:"ssl" yaml:"ssl" mapstructure:"ssl"`
-	Endpoint    string            `json:"endpoint" yaml:"endpoint" mapstructure:"endpoint"`
-	EndpointURL string            `json:"endpoint_url" yaml:"endpoint_url" mapstructure:"endpoint_url"`
-	Headers     map[string]string `json:"headers" yaml:"headers" mapstructure:"headers"`
+	Type string `json:"type" yaml:"type" mapstructure:"type"`
 }
 
 // setupOTelSDK bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
-func (cfg Config) SetupOTelSDK(ctx context.Context) (shutdown func(context.Context) error, err error) {
+func (cfg *Config) SetupOTelSDK(ctx context.Context) (shutdown func(context.Context) error, err error) {
 	var shutdownFuncs []func(context.Context) error
 
 	// shutdown calls cleanup functions registered via shutdownFuncs.
@@ -79,112 +79,88 @@ func (cfg Config) SetupOTelSDK(ctx context.Context) (shutdown func(context.Conte
 	return
 }
 
-func newPropagator(cfg Config) propagation.TextMapPropagator {
+func newPropagator(cfg *Config) propagation.TextMapPropagator {
 	return propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
 		propagation.Baggage{},
 	)
 }
 
-func newTraceProvider(cfg Config) (*trace.TracerProvider, error) {
-	opts := []otlptracehttp.Option{}
+func newTraceProvider(cfg *Config) (*trace.TracerProvider, error) {
+	var exporter trace.SpanExporter
+	var err error
 
-	if cfg.Endpoint != "" {
-		opts = append(opts, otlptracehttp.WithEndpoint(cfg.Endpoint))
-	}
-
-	if cfg.EndpointURL != "" {
-		opts = append(opts, otlptracehttp.WithEndpointURL(cfg.EndpointURL))
-	}
-
-	if !cfg.SSL {
-		opts = append(opts, otlptracehttp.WithInsecure())
-	}
-
-	if cfg.Headers != nil {
-		opts = append(opts, otlptracehttp.WithHeaders(cfg.Headers))
-	}
-
-	traceExporter, err := otlptracehttp.New(
-		context.Background(),
-		opts...,
-	)
-	if err != nil {
-		return nil, err
+	switch cfg.Type {
+	case "http":
+		exporter, err = otlptracehttp.New(
+			context.Background(),
+		)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		exporter, err = stdouttrace.New(stdouttrace.WithPrettyPrint())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	traceProvider := trace.NewTracerProvider(
 		trace.WithSampler(trace.AlwaysSample()),
-		trace.WithBatcher(traceExporter,
+		trace.WithBatcher(exporter,
 			// Default is 5s. Set to 1s for demonstrative purposes.
 			trace.WithBatchTimeout(time.Second)),
 	)
 	return traceProvider, nil
 }
 
-func newMeterProvider(cfg Config) (*metric.MeterProvider, error) {
-	opts := []otlpmetrichttp.Option{}
+func newMeterProvider(cfg *Config) (*metric.MeterProvider, error) {
+	var exporter metric.Exporter
+	var err error
 
-	if cfg.Endpoint != "" {
-		opts = append(opts, otlpmetrichttp.WithEndpoint(cfg.Endpoint))
-	}
-
-	if cfg.EndpointURL != "" {
-		opts = append(opts, otlpmetrichttp.WithEndpointURL(cfg.EndpointURL))
-	}
-
-	if !cfg.SSL {
-		opts = append(opts, otlpmetrichttp.WithInsecure())
-	}
-
-	if cfg.Headers != nil {
-		opts = append(opts, otlpmetrichttp.WithHeaders(cfg.Headers))
-	}
-
-	metricExporter, err := otlpmetrichttp.New(
-		context.Background(),
-		opts...,
-	)
-	if err != nil {
-		return nil, err
+	switch cfg.Type {
+	case "http":
+		exporter, err = otlpmetrichttp.New(
+			context.Background(),
+		)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		exporter, err = stdoutmetric.New(stdoutmetric.WithPrettyPrint())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	meterProvider := metric.NewMeterProvider(
-		metric.WithReader(metric.NewPeriodicReader(metricExporter)), // Default is 1m. Set to 3s for demonstrative purposes.
-
+		metric.WithReader(metric.NewPeriodicReader(exporter, metric.WithInterval(3*time.Second))),
+		// Default is 1m. Set to 3s for demonstrative purposes.
 	)
 	return meterProvider, nil
 }
 
-func newLoggerProvider(cfg Config) (*log.LoggerProvider, error) {
-	opts := []otlploghttp.Option{}
+func newLoggerProvider(cfg *Config) (*log.LoggerProvider, error) {
+	var exporter log.Exporter
+	var err error
 
-	if cfg.Endpoint != "" {
-		opts = append(opts, otlploghttp.WithEndpoint(cfg.Endpoint))
-	}
-
-	if cfg.EndpointURL != "" {
-		opts = append(opts, otlploghttp.WithEndpointURL(cfg.EndpointURL))
-	}
-
-	if !cfg.SSL {
-		opts = append(opts, otlploghttp.WithInsecure())
-	}
-
-	if cfg.Headers != nil {
-		opts = append(opts, otlploghttp.WithHeaders(cfg.Headers))
-	}
-
-	logExporter, err := otlploghttp.New(
-		context.Background(),
-		opts...,
-	)
-	if err != nil {
-		return nil, err
+	switch cfg.Type {
+	case "http":
+		exporter, err = otlploghttp.New(
+			context.Background(),
+		)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		exporter, err = stdoutlog.New(stdoutlog.WithPrettyPrint())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	loggerProvider := log.NewLoggerProvider(
-		log.WithProcessor(log.NewBatchProcessor(logExporter)),
+		log.WithProcessor(log.NewBatchProcessor(exporter)),
 	)
 	return loggerProvider, nil
 }
