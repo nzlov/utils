@@ -12,6 +12,22 @@ type Run interface {
 	Shutdown(context.Context) error
 }
 
+type run struct {
+	f func() error
+}
+
+func (r run) Run() error {
+	return r.f()
+}
+
+func (r run) Shutdown(ctx context.Context) error {
+	return nil
+}
+
+func (cfg Config) RunFunc(f func() error) (err error) {
+	return cfg.Run(run{f})
+}
+
 func (cfg Config) Run(r Run) (err error) {
 	// Handle SIGINT (CTRL+C) gracefully.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
