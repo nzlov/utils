@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -50,6 +51,16 @@ func For(ctx context.Context) *gorm.DB {
 
 func (c *Config) Ctx(ctx context.Context) context.Context {
 	return context.WithValue(ctx, _kvCtxKey, c.DB())
+}
+
+func Ctx(ctx context.Context, db *gorm.DB) context.Context {
+	return context.WithValue(ctx, _kvCtxKey, db)
+}
+
+func Tx(ctx context.Context, f func(context.Context) error, opts ...*sql.TxOptions) error {
+	return For(ctx).Transaction(func(tx *gorm.DB) error {
+		return f(Ctx(ctx, tx))
+	}, opts...)
 }
 
 type Option func(*gorm.Config)
