@@ -20,7 +20,9 @@ import (
 )
 
 type Config struct {
-	Type string `json:"type" yaml:"type" mapstructure:"type"`
+	Type          string `json:"type" yaml:"type" mapstructure:"type"`
+	MetricDisable bool   `json:"metricDisable" yaml:"metricDisable" mapstructure:"metricDisable"`
+	TraceDisable  bool   `json:"traceDisable" yaml:"traceDisable" mapstructure:"traceDisable"`
 }
 
 // setupOTelSDK bootstraps the OpenTelemetry pipeline.
@@ -45,27 +47,31 @@ func (cfg *Config) SetupOTelSDK(ctx context.Context) (shutdown func(context.Cont
 		err = errors.Join(inErr, shutdown(ctx))
 	}
 
-	// Set up propagator.
-	prop := newPropagator(cfg)
-	otel.SetTextMapPropagator(prop)
+	if !cfg.TraceDisable {
+		// Set up propagator.
+		prop := newPropagator(cfg)
+		otel.SetTextMapPropagator(prop)
 
-	// Set up trace provider.
-	tracerProvider, err := newTraceProvider(cfg)
-	if err != nil {
-		handleErr(err)
-		return
+		// Set up trace provider.
+		tracerProvider, nerr := newTraceProvider(cfg)
+		if nerr != nil {
+			handleErr(nerr)
+			return
+		}
+		shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
+		otel.SetTracerProvider(tracerProvider)
 	}
-	shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
-	otel.SetTracerProvider(tracerProvider)
 
-	// Set up meter provider.
-	meterProvider, err := newMeterProvider(cfg)
-	if err != nil {
-		handleErr(err)
-		return
+	if !cfg.TraceDisable {
+		// Set up meter provider.
+		meterProvider, nerr := newMeterProvider(cfg)
+		if nerr != nil {
+			handleErr(nerr)
+			return
+		}
+		shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
+		otel.SetMeterProvider(meterProvider)
 	}
-	shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
-	otel.SetMeterProvider(meterProvider)
 
 	// Set up logger provider.
 	loggerProvider, err := newLoggerProvider(cfg)
@@ -99,7 +105,7 @@ func newTraceProvider(cfg *Config) (*trace.TracerProvider, error) {
 			return nil, err
 		}
 	default:
-		exporter, err = stdouttrace.New(stdouttrace.WithPrettyPrint())
+		exporter, err = stdouttrace.New()
 		if err != nil {
 			return nil, err
 		}
@@ -127,7 +133,7 @@ func newMeterProvider(cfg *Config) (*metric.MeterProvider, error) {
 			return nil, err
 		}
 	default:
-		exporter, err = stdoutmetric.New(stdoutmetric.WithPrettyPrint())
+		exporter, err = stdoutmetric.New()
 		if err != nil {
 			return nil, err
 		}
@@ -153,7 +159,7 @@ func newLoggerProvider(cfg *Config) (*log.LoggerProvider, error) {
 			return nil, err
 		}
 	default:
-		exporter, err = stdoutlog.New(stdoutlog.WithPrettyPrint())
+		exporter, err = stdoutlog.New()
 		if err != nil {
 			return nil, err
 		}

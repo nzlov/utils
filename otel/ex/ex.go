@@ -10,7 +10,10 @@ import (
 )
 
 func main() {
-	cfg := &otel.Config{}
+	cfg := &otel.Config{
+		MetricDisable: true,
+		TraceDisable:  true,
+	}
 
 	if err := cfg.Run(&App{}); err != nil {
 		log.Fatal(err)
@@ -35,6 +38,8 @@ func (a *App) Run() error {
 			exotel.Info(ctx, r.URL.String())
 		}),
 	}
+
+	exotel.Info(context.Background(), "Start")
 
 	return a.srv.ListenAndServe()
 }
