@@ -31,7 +31,7 @@ func (m *Map[K, T]) Clear() {
 func (m *Map[K, T]) LoadOrStore(key K, value T) (actual T, loaded bool) {
 	v, ok := m.m.LoadOrStore(key, value)
 	if !ok {
-		return *new(T), ok
+		return value, loaded
 	}
 	return v.(T), ok
 }
