@@ -8,23 +8,23 @@ import (
 )
 
 type Run interface {
-	Run() error
+	Run(context.Context) error
 	Shutdown(context.Context) error
 }
 
 type run struct {
-	f func() error
+	f func(context.Context) error
 }
 
-func (r *run) Run() error {
-	return r.f()
+func (r *run) Run(ctx context.Context) error {
+	return r.f(ctx)
 }
 
 func (r *run) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func (cfg *Config) RunFunc(f func() error) (err error) {
+func (cfg *Config) RunFunc(f func(ctx context.Context) error) (err error) {
 	return cfg.Run(&run{f})
 }
 
@@ -45,7 +45,7 @@ func (cfg *Config) Run(r Run) (err error) {
 
 	srvErr := make(chan error, 1)
 	go func() {
-		srvErr <- r.Run()
+		srvErr <- r.Run(ctx)
 	}()
 
 	// Wait for interruption.
