@@ -3,7 +3,10 @@ package db
 import (
 	"context"
 	"database/sql"
+	"embed"
+	"errors"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"gorm.io/driver/mysql"
@@ -25,6 +28,11 @@ func (d Model) GetID() uint {
 	return d.ID
 }
 
+type SQLExecutionHistory struct {
+	Model
+	FileName string `gorm:"uniqueIndex"`
+}
+
 type Config struct {
 	db *gorm.DB
 
@@ -43,7 +51,9 @@ func (c *Config) DB() *gorm.DB {
 	return db
 }
 
-var _kvCtxKey = "nzlov@Gorm"
+type contextKey string
+
+const _kvCtxKey contextKey = "nzlov@Gorm"
 
 func For(ctx context.Context) *gorm.DB {
 	return ctx.Value(_kvCtxKey).(*gorm.DB)
@@ -94,6 +104,62 @@ func (d *Config) Open(ops ...Option) (*gorm.DB, error) {
 		err = fmt.Errorf("not supported %s db driver", d.Driver)
 	}
 	return d.db, err
+}
+
+// ExecuteSQLFilesFromEmbed reads SQL files from an embedded directory and executes them if not already executed.
+// Uses a transaction to ensure atomicity of SQL execution and history recording.
+func (c *Config) ExecuteSQLFilesFromEmbed(fs embed.FS, dir string) error {
+	db := c.DB()
+
+	// Auto-migrate the SQL execution history table
+	if err := db.AutoMigrate(&SQLExecutionHistory{}); err != nil {
+		return fmt.Errorf("failed to migrate SQL execution history table: %v", err)
+	}
+
+	// Read all SQL files from the embedded directory
+	files, err := fs.ReadDir(dir)
+	if err != nil {
+		return fmt.Errorf("failed to read embedded directory: %v", err)
+	}
+
+	for _, file := range files {
+		if filepath.Ext(file.Name()) != ".sql" {
+			continue
+		}
+
+		// Check if the file has already been executed
+		var history SQLExecutionHistory
+		if err := db.Where("file_name = ?", file.Name()).First(&history).Error; err == nil {
+			continue // Skip if already executed
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("failed to query execution history: %v", err)
+		}
+
+		// Read the SQL file content
+		content, err := fs.ReadFile(filepath.Join(dir, file.Name()))
+		if err != nil {
+			return fmt.Errorf("failed to read SQL file: %v", err)
+		}
+
+		// Execute the SQL and record history in a transaction
+		err = db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Exec(string(content)).Error; err != nil {
+				return fmt.Errorf("failed to execute SQL file %s: %v", file.Name(), err)
+			}
+
+			if err := tx.Create(&SQLExecutionHistory{
+				FileName: file.Name(),
+			}).Error; err != nil {
+				return fmt.Errorf("failed to record SQL execution: %v", err)
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 type DBModelID interface {
