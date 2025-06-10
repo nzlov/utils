@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"gorm.io/driver/mysql"
@@ -143,8 +144,14 @@ func (c *Config) ExecuteSQLFilesFromEmbed(fs embed.FS, dir string) error {
 
 		// Execute the SQL and record history in a transaction
 		err = db.Transaction(func(tx *gorm.DB) error {
-			if err := tx.Exec(string(content)).Error; err != nil {
-				return fmt.Errorf("failed to execute SQL file %s: %v", file.Name(), err)
+			sqlLines := strings.Split(string(content), "\n")
+			for _, line := range sqlLines {
+				if strings.TrimSpace(line) == "" {
+					continue // Skip empty lines
+				}
+				if err := tx.Exec(line).Error; err != nil {
+					return fmt.Errorf("failed to execute SQL line in file %s: %v", file.Name(), err)
+				}
 			}
 
 			if err := tx.Create(&SQLExecutionHistory{
