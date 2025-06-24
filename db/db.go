@@ -57,7 +57,7 @@ type contextKey string
 const _kvCtxKey contextKey = "nzlov@Gorm"
 
 func For(ctx context.Context) *gorm.DB {
-	return ctx.Value(_kvCtxKey).(*gorm.DB)
+	return ctx.Value(_kvCtxKey).(*gorm.DB).Session(&gorm.Session{})
 }
 
 func (c *Config) Ctx(ctx context.Context) context.Context {
