@@ -69,7 +69,10 @@ func Ctx(ctx context.Context, db *gorm.DB) context.Context {
 }
 
 func CtxNew(ctx context.Context) context.Context {
-	return context.WithValue(ctx, _kvCtxKey, For(ctx).Session(&gorm.Session{NewDB: true}))
+	return context.WithValue(ctx, _kvCtxKey, For(ctx).Session(&gorm.Session{
+		NewDB:       true,
+		Initialized: true,
+	}))
 }
 
 func Tx(ctx context.Context, f func(context.Context) error, opts ...*sql.TxOptions) error {
