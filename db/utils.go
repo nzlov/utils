@@ -1,35 +1,26 @@
 package db
 
 import (
-	"database/sql/driver"
-	"encoding/json"
-	"fmt"
+	"context"
+
+	"github.com/vikstrous/dataloadgen"
 )
 
-type Map map[string]any
-
-// Scan implements the sql.Scanner interface for Map.
-func (n *Map) Scan(value any) error {
-	if value == nil {
-		*n = nil
-		return nil
-	}
-	var data []byte
-	switch v := value.(type) {
-	case []byte:
-		data = v
-	case string:
-		data = []byte(v)
-	default:
-		return fmt.Errorf("unsupported type: %T", value)
-	}
-	return json.Unmarshal(data, n)
-}
-
-// Value implements the driver.Valuer interface for Map.
-func (n Map) Value() (driver.Value, error) {
-	if n == nil {
-		return nil, nil
-	}
-	return json.Marshal(n)
+func Loader[T any](column string, key func(T) string, options ...dataloadgen.Option) *dataloadgen.Loader[string, T] {
+	return dataloadgen.NewLoader(func(ctx context.Context, s []string) ([]T, []error) {
+		db := For(ctx)
+		objs := []T{}
+		rs := make([]T, len(s))
+		es := make([]error, len(s))
+		err := db.Where(column+" in (?)", s).Find(&objs).Error
+		rm := map[string]T{}
+		for _, v := range objs {
+			rm[key(v)] = v
+		}
+		for i, v := range s {
+			rs[i] = rm[v]
+			es[i] = err
+		}
+		return rs, es
+	})
 }
