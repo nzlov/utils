@@ -15,13 +15,22 @@ func Loader[T any](column string, key func(T) string, options ...dataloadgen.Opt
 		rs := make([]T, len(keys))
 		es := make([]error, len(keys))
 		err := db.Where(column+" in (?)", keys).Find(&objs).Error
-		rm := map[string]T{}
-		for _, v := range objs {
-			rm[key(v)] = v
-		}
-		for i, v := range keys {
-			rs[i] = rm[v]
-			es[i] = err
+		if err != nil {
+			for i := range keys {
+				es[i] = err
+			}
+		} else {
+			rm := map[string]T{}
+			for _, v := range objs {
+				rm[key(v)] = v
+			}
+			var ok bool
+			for i, v := range keys {
+				rs[i], ok = rm[v]
+				if !ok {
+					es[i] = fmt.Errorf("%w: %s", ErrNotFound, strings.Split(v, "@nzlov@"))
+				}
+			}
 		}
 		return rs, es
 	}, options...)
@@ -45,10 +54,8 @@ func Loaders[T any](columns []string, key func(T) []string, options ...dataloadg
 
 		css := make([][]string, len(columns))
 
-		fmt.Println(keys)
 		for i, c := range keys {
 			cs := strings.Split(c, "@nzlov@")
-			fmt.Println(cs)
 			if len(cs) != len(columns) {
 				es[i] = fmt.Errorf("%w: %s", ErrKey, cs)
 				continue
@@ -57,14 +64,13 @@ func Loaders[T any](columns []string, key func(T) []string, options ...dataloadg
 				css[j] = append(css[j], c)
 			}
 		}
+
 		for i, v := range columns {
 			db = db.Where(v+" in (?)", css[i])
 		}
+
 		err := db.Find(&objs).Error
-		rm := map[string]T{}
-		for _, v := range objs {
-			rm[strings.Join(key(v), "@nzlov@")] = v
-		}
+
 		if err != nil {
 			for i := range keys {
 				if es[i] != nil {
@@ -73,6 +79,10 @@ func Loaders[T any](columns []string, key func(T) []string, options ...dataloadg
 				es[i] = err
 			}
 		} else {
+			rm := map[string]T{}
+			for _, v := range objs {
+				rm[strings.Join(key(v), "@nzlov@")] = v
+			}
 			var ok bool
 			for i, v := range keys {
 				if es[i] != nil {
