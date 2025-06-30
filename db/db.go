@@ -116,8 +116,8 @@ func (d *Config) Open(ops ...Option) (*gorm.DB, error) {
 
 // ExecuteSQLFilesFromEmbed reads SQL files from an embedded directory and executes them if not already executed.
 // Uses a transaction to ensure atomicity of SQL execution and history recording.
-func (c *Config) ExecuteSQLFilesFromEmbed(fs embed.FS, dir string) error {
-	db := c.DB()
+func ExecuteSQLFilesFromEmbed(ctx context.Context, fs embed.FS, dir string) error {
+	db := For(ctx)
 
 	// Auto-migrate the SQL execution history table
 	if err := db.AutoMigrate(&SQLExecutionHistory{}); err != nil {
