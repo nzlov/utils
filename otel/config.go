@@ -21,7 +21,7 @@ import (
 )
 
 type Config struct {
-	Name          string `json"name" yaml:"name" mapstructure:"name"`
+	Name          string `json:"name" yaml:"name" mapstructure:"name"`
 	LogSource     bool   `json:"logSource" yaml:"logSource" mapstructure:"logSource"`
 	Type          string `json:"type" yaml:"type" mapstructure:"type"`
 	MetricDisable bool   `json:"metricDisable" yaml:"metricDisable" mapstructure:"metricDisable"`
@@ -32,20 +32,6 @@ type Config struct {
 // If it does not return an error, make sure to call shutdown for proper cleanup.
 func (cfg *Config) SetupOTelSDK(ctx context.Context) (shutdown func(context.Context) error, err error) {
 	var shutdownFuncs []func(context.Context) error
-
-	name := "default"
-	if cfg.Name != "" {
-		name = cfg.Name
-	}
-
-	Tracer = otel.Tracer(name)
-	Start = Tracer.Start
-	Meter = otel.Meter(name)
-
-	_log = otelslog.NewLogger(name, otelslog.WithSource(cfg.LogSource))
-
-	Info = _log.InfoContext
-	Error = _log.ErrorContext
 
 	// shutdown calls cleanup functions registered via shutdownFuncs.
 	// The errors from the calls are joined.
@@ -98,6 +84,20 @@ func (cfg *Config) SetupOTelSDK(ctx context.Context) (shutdown func(context.Cont
 	}
 	shutdownFuncs = append(shutdownFuncs, loggerProvider.Shutdown)
 	global.SetLoggerProvider(loggerProvider)
+
+	name := "default"
+	if cfg.Name != "" {
+		name = cfg.Name
+	}
+
+	Tracer = otel.Tracer(name)
+	Start = Tracer.Start
+	Meter = otel.Meter(name)
+
+	_log = otelslog.NewLogger(name, otelslog.WithSource(cfg.LogSource))
+
+	Info = _log.InfoContext
+	Error = _log.ErrorContext
 
 	return
 }
