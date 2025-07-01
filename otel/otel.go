@@ -60,8 +60,17 @@ func (l *logger) With(args ...any) Logger {
 	return &logger{log: l.log.With(args...), source: l.source}
 }
 
+func (l *logger) Write(p []byte) (n int, err error) {
+	l.log.Info(string(p))
+	return len(p), nil
+}
+
+func (l *logger) Printf(f string, args ...any) {
+	l.log.Info(fmt.Sprintf(f, args...))
+}
+
 var (
-	_log logger
+	Log logger
 
 	Info  func(ctx context.Context, msg string, args ...any)
 	Error func(ctx context.Context, msg string, args ...any)
@@ -89,7 +98,7 @@ func ForLog(ctx context.Context, args ...any) (Logger, context.Context) {
 		l := contextLog.(Logger).With(args...)
 		return l, CtxLog(ctx, l)
 	}
-	l := _log.With(args...)
+	l := With(args...)
 	return l, CtxLog(ctx, l)
 }
 
