@@ -3,6 +3,7 @@ package otel
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
@@ -98,6 +99,8 @@ func (cfg *Config) SetupOTelSDK(ctx context.Context) (shutdown func(context.Cont
 		log:    otelslog.NewLogger(name),
 		source: cfg.LogSource,
 	}
+
+	slog.SetDefault(_log.log)
 
 	Info = _log.Info
 	Error = _log.Error
