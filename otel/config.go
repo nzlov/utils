@@ -95,7 +95,7 @@ func (cfg *Config) SetupOTelSDK(ctx context.Context) (shutdown func(context.Cont
 	Start = Tracer.Start
 	Meter = otel.Meter(name)
 
-	Log = logger{
+	Log = &Logger{
 		log:    otelslog.NewLogger(name),
 		source: cfg.LogSource,
 	}
