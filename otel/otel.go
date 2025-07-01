@@ -2,16 +2,71 @@ package otel
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"runtime"
 
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 )
 
+type Logger interface {
+	Info(ctx context.Context, msg string, args ...any)
+	Error(ctx context.Context, msg string, args ...any)
+	Warn(ctx context.Context, msg string, args ...any)
+	With(args ...any) Logger
+}
+
+type logger struct {
+	log    *slog.Logger
+	source bool
+}
+
+func (l logger) sources() []any {
+	var pcs [1]uintptr
+	// skip [runtime.Callers, this function, this function's caller]
+	runtime.Callers(3, pcs[:])
+
+	fs := runtime.CallersFrames([]uintptr{pcs[0]})
+	f, _ := fs.Next()
+	return []any{
+		"code_source", fmt.Sprintf("%s:%d %s", f.File, f.Line, f.Function),
+	}
+}
+
+func (l *logger) Info(ctx context.Context, msg string, args ...any) {
+	if l.source {
+		args = append(l.sources(), args...)
+		fmt.Println(args)
+	}
+	l.log.InfoContext(ctx, msg, args...)
+}
+
+func (l *logger) Error(ctx context.Context, msg string, args ...any) {
+	if l.source {
+		args = append(l.sources(), args...)
+	}
+	l.log.ErrorContext(ctx, msg, args...)
+}
+
+func (l *logger) Warn(ctx context.Context, msg string, args ...any) {
+	if l.source {
+		args = append(l.sources(), args...)
+	}
+	l.log.WarnContext(ctx, msg, args...)
+}
+
+func (l *logger) With(args ...any) Logger {
+	return &logger{log: l.log.With(args...), source: l.source}
+}
+
 var (
-	_log  *slog.Logger
+	_log logger
+
 	Info  func(ctx context.Context, msg string, args ...any)
 	Error func(ctx context.Context, msg string, args ...any)
+	Warn  func(ctx context.Context, msg string, args ...any)
+	With  func(args ...any) Logger
 )
 
 var (
@@ -25,19 +80,19 @@ type ctxLogKey struct{}
 
 var _ctxLogKey = &ctxLogKey{}
 
-func ForLog(ctx context.Context, args ...any) (*slog.Logger, context.Context) {
+func ForLog(ctx context.Context, args ...any) (Logger, context.Context) {
 	contextLog := ctx.Value(_ctxLogKey)
 	if contextLog != nil {
 		if len(args) == 0 {
-			return contextLog.(*slog.Logger), ctx
+			return contextLog.(Logger), ctx
 		}
-		l := contextLog.(*slog.Logger).With(args...)
+		l := contextLog.(Logger).With(args...)
 		return l, CtxLog(ctx, l)
 	}
 	l := _log.With(args...)
 	return l, CtxLog(ctx, l)
 }
 
-func CtxLog(ctx context.Context, log *slog.Logger) context.Context {
+func CtxLog(ctx context.Context, log Logger) context.Context {
 	return context.WithValue(ctx, _ctxLogKey, log)
 }
