@@ -22,11 +22,12 @@ import (
 )
 
 type Config struct {
-	Name          string `json:"name" yaml:"name" mapstructure:"name"`
-	LogSource     bool   `json:"logSource" yaml:"logSource" mapstructure:"logSource"`
-	Type          string `json:"type" yaml:"type" mapstructure:"type"`
-	MetricDisable bool   `json:"metricDisable" yaml:"metricDisable" mapstructure:"metricDisable"`
-	TraceDisable  bool   `json:"traceDisable" yaml:"traceDisable" mapstructure:"traceDisable"`
+	Name          string  `json:"name" yaml:"name" mapstructure:"name"`
+	LogSource     bool    `json:"logSource" yaml:"logSource" mapstructure:"logSource"`
+	Type          string  `json:"type" yaml:"type" mapstructure:"type"`
+	MetricDisable bool    `json:"metricDisable" yaml:"metricDisable" mapstructure:"metricDisable"`
+	TraceDisable  bool    `json:"traceDisable" yaml:"traceDisable" mapstructure:"traceDisable"`
+	TraceRatio    float64 `json:"traceRatio" yaml:"traceRatio" mapstructure:"traceRatio"`
 }
 
 // setupOTelSDK bootstraps the OpenTelemetry pipeline.
@@ -137,7 +138,7 @@ func newTraceProvider(cfg *Config) (*trace.TracerProvider, error) {
 	}
 
 	traceProvider := trace.NewTracerProvider(
-		trace.WithSampler(trace.AlwaysSample()),
+		trace.WithSampler(trace.ParentBased(trace.TraceIDRatioBased(cfg.TraceRatio))),
 		trace.WithBatcher(exporter,
 			// Default is 5s. Set to 1s for demonstrative purposes.
 			trace.WithBatchTimeout(time.Second)),
