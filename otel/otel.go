@@ -30,7 +30,6 @@ func (l *Logger) sources() []any {
 func (l *Logger) Info(ctx context.Context, msg string, args ...any) {
 	if l.source {
 		args = append(l.sources(), args...)
-		fmt.Println(args)
 	}
 	l.log.InfoContext(ctx, msg, args...)
 }

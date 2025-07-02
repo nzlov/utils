@@ -89,7 +89,6 @@ func WithCacheTimeout(t int) func(*Config) {
 func (c *Config) push() {
 	defer func() {
 		if err := recover(); err != nil {
-			fmt.Println(err)
 			debug.PrintStack()
 		}
 		go c.push()
