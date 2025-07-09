@@ -10,6 +10,7 @@ import (
 func Get[T any](url string) (*T, error) {
 	return GetHeader[T](url, nil)
 }
+
 func GetHeader[T any](url string, h map[string]string) (*T, error) {
 	return req[T](url, "GET", nil, h)
 }
@@ -22,6 +23,8 @@ func req[T any](url, method string, data any, h map[string]string) (*T, error) {
 			return nil, err
 		}
 		dbr = bytes.NewReader(db)
+	} else {
+		dbr = nil
 	}
 	req, err := http.NewRequest(method, url, dbr)
 	if err != nil {
@@ -41,12 +44,12 @@ func req[T any](url, method string, data any, h map[string]string) (*T, error) {
 	}
 	t := new(T)
 	return t, json.Unmarshal(db, t)
-
 }
 
 func Post[T any](url string, data any) (*T, error) {
 	return PostHeader[T](url, data, nil)
 }
+
 func PostHeader[T any](url string, data any, h map[string]string) (*T, error) {
 	return req[T](url, "POST", data, h)
 }
