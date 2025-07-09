@@ -16,17 +16,17 @@ func GetHeader[T any](url string, h map[string]string) (*T, error) {
 }
 
 func req[T any](url, method string, data any, h map[string]string) (*T, error) {
-	var dbr *bytes.Reader
+	var req *http.Request
+	var err error
 	if data != nil {
-		db, err := json.Marshal(data)
-		if err != nil {
-			return nil, err
+		db, err1 := json.Marshal(data)
+		if err1 != nil {
+			return nil, err1
 		}
-		dbr = bytes.NewReader(db)
+		req, err = http.NewRequest(method, url, bytes.NewReader(db))
 	} else {
-		dbr = nil
+		req, err = http.NewRequest(method, url, nil)
 	}
-	req, err := http.NewRequest(method, url, dbr)
 	if err != nil {
 		return nil, err
 	}
