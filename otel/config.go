@@ -1,6 +1,7 @@
 package otel
 
 import (
+	"compress/gzip"
 	"context"
 	"errors"
 	"log/slog"
@@ -58,7 +59,7 @@ func (cfg *Config) SetupOTelSDK(ctx context.Context) (shutdown func(context.Cont
 		otel.SetTextMapPropagator(prop)
 
 		// Set up trace provider.
-		tracerProvider, nerr := newTraceProvider(cfg)
+		tracerProvider, nerr := newTraceProvider(ctx, cfg)
 		if nerr != nil {
 			handleErr(nerr)
 			return
@@ -69,7 +70,7 @@ func (cfg *Config) SetupOTelSDK(ctx context.Context) (shutdown func(context.Cont
 
 	if !cfg.TraceDisable {
 		// Set up meter provider.
-		meterProvider, nerr := newMeterProvider(cfg)
+		meterProvider, nerr := newMeterProvider(ctx, cfg)
 		if nerr != nil {
 			handleErr(nerr)
 			return
@@ -79,7 +80,7 @@ func (cfg *Config) SetupOTelSDK(ctx context.Context) (shutdown func(context.Cont
 	}
 
 	// Set up logger provider.
-	loggerProvider, err := newLoggerProvider(cfg)
+	loggerProvider, err := newLoggerProvider(ctx, cfg)
 	if err != nil {
 		handleErr(err)
 		return
@@ -118,14 +119,15 @@ func newPropagator(cfg *Config) propagation.TextMapPropagator {
 	)
 }
 
-func newTraceProvider(cfg *Config) (*trace.TracerProvider, error) {
+func newTraceProvider(ctx context.Context, cfg *Config) (*trace.TracerProvider, error) {
 	var exporter trace.SpanExporter
 	var err error
 
 	switch cfg.Type {
 	case "http":
 		exporter, err = otlptracehttp.New(
-			context.Background(),
+			ctx,
+			otlptracehttp.WithCompression(gzip.BestSpeed),
 		)
 		if err != nil {
 			return nil, err
@@ -146,14 +148,15 @@ func newTraceProvider(cfg *Config) (*trace.TracerProvider, error) {
 	return traceProvider, nil
 }
 
-func newMeterProvider(cfg *Config) (*metric.MeterProvider, error) {
+func newMeterProvider(ctx context.Context, cfg *Config) (*metric.MeterProvider, error) {
 	var exporter metric.Exporter
 	var err error
 
 	switch cfg.Type {
 	case "http":
 		exporter, err = otlpmetrichttp.New(
-			context.Background(),
+			ctx,
+			otlpmetrichttp.WithCompression(gzip.BestSpeed),
 		)
 		if err != nil {
 			return nil, err
@@ -172,14 +175,15 @@ func newMeterProvider(cfg *Config) (*metric.MeterProvider, error) {
 	return meterProvider, nil
 }
 
-func newLoggerProvider(cfg *Config) (*log.LoggerProvider, error) {
+func newLoggerProvider(ctx context.Context, cfg *Config) (*log.LoggerProvider, error) {
 	var exporter log.Exporter
 	var err error
 
 	switch cfg.Type {
 	case "http":
 		exporter, err = otlploghttp.New(
-			context.Background(),
+			ctx,
+			otlploghttp.WithCompression(gzip.BestSpeed),
 		)
 		if err != nil {
 			return nil, err
