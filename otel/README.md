@@ -4,35 +4,6 @@
 
 ## 使用方法
 
-- 创建`otel`包及`otel.go`文件，注意修改`otelName`
-
-```
-
-package otel
-
-import (
- "go.opentelemetry.io/contrib/bridges/otelslog"
- "go.opentelemetry.io/otel"
-)
-
-const otelName = "utils"
-
-var (
- Tracer = otel.Tracer(otelName)
- Start  = Tracer.Start
-)
-
-var (
- Log = otelslog.NewLogger(otelName)
-
- With  = Log.With
- Info  = Log.InfoContext
- Error = Log.ErrorContext
-)
-
-var Meter = otel.Meter(otelName)
-```
-
 - 创建结构实现`Run`接口
 
 ```
@@ -80,7 +51,7 @@ func (a *App) Shutdown(ctx context.Context) error {
 - 需要追踪使用
 
 ```
-ctx, span := otel.Tracer.Start(r.Context(), "handler")
+ctx, span := otel.Start(r.Context(), "handler")
 defer span.End()
 ```
 
