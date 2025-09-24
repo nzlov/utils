@@ -2,48 +2,66 @@ package main
 
 import (
 	"context"
-	"log"
-	"net/http"
 
 	"github.com/nzlov/utils/otel"
-	exotel "github.com/nzlov/utils/otel/ex/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
-func main() {
-	cfg := &otel.Config{
-		MetricDisable: true,
-		TraceDisable:  true,
-	}
+type App struct{}
 
-	if err := cfg.Run(&App{}); err != nil {
-		log.Fatal(err)
-	}
+func (a *App) Run(ctx context.Context) error {
+	A(ctx)
+	return nil
 }
 
-type App struct {
-	srv *http.Server
+func A(ctx context.Context) {
+	ctx, span := otel.Start(ctx, "A", trace.WithAttributes(attribute.String("name", "AA")))
+	defer span.End()
+
+	otel.Info(ctx, "aaa", "a", "A")
+	B(ctx)
 }
 
-func NewApp() *App {
-	return &App{}
+func B(ctx context.Context) {
+	ctx, span := otel.Start(ctx, "B", trace.WithAttributes(attribute.String("name", "BB")))
+	defer span.End()
+
+	otel.Info(ctx, "bbb", "b", "B")
+	C(ctx)
 }
 
-func (a *App) Run() error {
-	a.srv = &http.Server{
-		Addr: ":9999",
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx, span := exotel.Tracer.Start(r.Context(), "handler")
-			defer span.End()
+func C(ctx context.Context) {
+	ctx, span := otel.Start(ctx, "C", trace.WithAttributes(attribute.String("name", "CC")))
+	defer span.End()
 
-			exotel.Info(ctx, r.URL.String())
-		}),
-	}
+	log, ctx := otel.ForLog(ctx, "c", "C")
 
-	exotel.Info(context.Background(), "Start")
+	log.Info(ctx, "ccc", "c1", "c")
+	D(ctx)
+}
 
-	return a.srv.ListenAndServe()
+func D(ctx context.Context) {
+	ctx, span := otel.Start(ctx, "D", trace.WithAttributes(attribute.String("name", "DD")))
+	defer span.End()
+
+	log, ctx := otel.ForLog(ctx, "d", "D")
+
+	log.Info(ctx, "ddd", "d1", "d")
 }
 
 func (a *App) Shutdown(ctx context.Context) error {
-	return a.srv.Shutdown(ctx)
+	return nil
+}
+
+func main() {
+	cfg := otel.Config{
+		Name:          "tot",
+		Type:          "http",
+		LogSource:     true,
+		MetricDisable: true,
+	}
+	if err := cfg.Run(new(App)); err != nil {
+		panic(err)
+	}
 }
