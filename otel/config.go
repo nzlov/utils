@@ -59,10 +59,10 @@ func (cfg *Config) SetupOTelSDK(ctx context.Context) (shutdown func(context.Cont
 		otel.SetTextMapPropagator(prop)
 
 		// Set up trace provider.
-		tracerProvider, nerr := newTraceProvider(ctx, cfg)
-		if nerr != nil {
-			handleErr(nerr)
-			return
+		tracerProvider, err := newTraceProvider(ctx, cfg)
+		if err != nil {
+			handleErr(err)
+			return shutdown, err
 		}
 		shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
 		otel.SetTracerProvider(tracerProvider)
@@ -70,10 +70,10 @@ func (cfg *Config) SetupOTelSDK(ctx context.Context) (shutdown func(context.Cont
 
 	if !cfg.TraceDisable {
 		// Set up meter provider.
-		meterProvider, nerr := newMeterProvider(ctx, cfg)
-		if nerr != nil {
-			handleErr(nerr)
-			return
+		meterProvider, err := newMeterProvider(ctx, cfg)
+		if err != nil {
+			handleErr(err)
+			return shutdown, err
 		}
 		shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
 		otel.SetMeterProvider(meterProvider)
@@ -83,7 +83,7 @@ func (cfg *Config) SetupOTelSDK(ctx context.Context) (shutdown func(context.Cont
 	loggerProvider, err := newLoggerProvider(ctx, cfg)
 	if err != nil {
 		handleErr(err)
-		return
+		return shutdown, err
 	}
 	shutdownFuncs = append(shutdownFuncs, loggerProvider.Shutdown)
 	global.SetLoggerProvider(loggerProvider)
@@ -97,19 +97,21 @@ func (cfg *Config) SetupOTelSDK(ctx context.Context) (shutdown func(context.Cont
 	Start = Tracer.Start
 	Meter = otel.Meter(name)
 
-	Log = &Logger{
+	log := &logger{
 		log:    otelslog.NewLogger(name),
 		source: cfg.LogSource,
 	}
 
-	slog.SetDefault(Log.log)
+	slog.SetDefault(log.log)
+
+	Log = log
 
 	Info = Log.Info
 	Error = Log.Error
 	Warn = Log.Warn
 	With = Log.With
 
-	return
+	return shutdown, err
 }
 
 func newPropagator(cfg *Config) propagation.TextMapPropagator {

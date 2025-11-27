@@ -10,12 +10,21 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type Logger struct {
+type Logger interface {
+	Info(ctx context.Context, msg string, args ...any)
+	Error(ctx context.Context, msg string, args ...any)
+	Warn(ctx context.Context, msg string, args ...any)
+	With(args ...any) Logger
+	Write([]byte) (int, error)
+	Printf(string, ...any)
+}
+
+type logger struct {
 	log    *slog.Logger
 	source bool
 }
 
-func (l *Logger) sources() []any {
+func (l *logger) sources() []any {
 	var pcs [1]uintptr
 	// skip [runtime.Callers, this function, this function's caller]
 	runtime.Callers(3, pcs[:])
@@ -27,47 +36,47 @@ func (l *Logger) sources() []any {
 	}
 }
 
-func (l *Logger) Info(ctx context.Context, msg string, args ...any) {
+func (l *logger) Info(ctx context.Context, msg string, args ...any) {
 	if l.source {
 		args = append(l.sources(), args...)
 	}
 	l.log.InfoContext(ctx, msg, args...)
 }
 
-func (l *Logger) Error(ctx context.Context, msg string, args ...any) {
+func (l *logger) Error(ctx context.Context, msg string, args ...any) {
 	if l.source {
 		args = append(l.sources(), args...)
 	}
 	l.log.ErrorContext(ctx, msg, args...)
 }
 
-func (l *Logger) Warn(ctx context.Context, msg string, args ...any) {
+func (l *logger) Warn(ctx context.Context, msg string, args ...any) {
 	if l.source {
 		args = append(l.sources(), args...)
 	}
 	l.log.WarnContext(ctx, msg, args...)
 }
 
-func (l *Logger) With(args ...any) *Logger {
-	return &Logger{log: l.log.With(args...), source: l.source}
+func (l *logger) With(args ...any) Logger {
+	return &logger{log: l.log.With(args...), source: l.source}
 }
 
-func (l *Logger) Write(p []byte) (n int, err error) {
+func (l *logger) Write(p []byte) (n int, err error) {
 	l.log.Info(string(p))
 	return len(p), nil
 }
 
-func (l *Logger) Printf(f string, args ...any) {
+func (l *logger) Printf(f string, args ...any) {
 	l.log.Info(fmt.Sprintf(f, args...))
 }
 
 var (
-	Log *Logger
+	Log Logger
 
 	Info  func(ctx context.Context, msg string, args ...any)
 	Error func(ctx context.Context, msg string, args ...any)
 	Warn  func(ctx context.Context, msg string, args ...any)
-	With  func(args ...any) *Logger
+	With  func(args ...any) Logger
 )
 
 var (
@@ -81,19 +90,19 @@ type ctxLogKey struct{}
 
 var _ctxLogKey = &ctxLogKey{}
 
-func ForLog(ctx context.Context, args ...any) (*Logger, context.Context) {
+func ForLog(ctx context.Context, args ...any) (Logger, context.Context) {
 	contextLog := ctx.Value(_ctxLogKey)
 	if contextLog != nil {
 		if len(args) == 0 {
-			return contextLog.(*Logger), ctx
+			return contextLog.(Logger), ctx
 		}
-		l := contextLog.(*Logger).With(args...)
+		l := contextLog.(Logger).With(args...)
 		return l, CtxLog(ctx, l)
 	}
 	l := With(args...)
 	return l, CtxLog(ctx, l)
 }
 
-func CtxLog(ctx context.Context, log *Logger) context.Context {
+func CtxLog(ctx context.Context, log Logger) context.Context {
 	return context.WithValue(ctx, _ctxLogKey, log)
 }

@@ -27,7 +27,7 @@ func B(ctx context.Context) {
 	ctx, span := otel.Start(ctx, "B", trace.WithAttributes(attribute.String("name", "BB")))
 	defer span.End()
 
-	otel.Info(ctx, "bbb", "b", "B")
+	otel.With("b", "B").Info(ctx, "bbb")
 	C(ctx)
 }
 
@@ -57,9 +57,10 @@ func (a *App) Shutdown(ctx context.Context) error {
 func main() {
 	cfg := otel.Config{
 		Name:          "tot",
-		Type:          "http",
+		Type:          "httpc",
 		LogSource:     true,
 		MetricDisable: true,
+		TraceDisable:  true,
 	}
 	if err := cfg.Run(new(App)); err != nil {
 		panic(err)
