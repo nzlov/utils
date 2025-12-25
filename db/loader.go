@@ -8,6 +8,27 @@ import (
 	"github.com/vikstrous/dataloadgen"
 )
 
+type whereKey string
+
+var _whereKey whereKey = "nzlov@whereKey"
+
+type where struct {
+	Query string
+	Args  []any
+}
+
+func WhereCtx(ctx context.Context, query string, args ...any) context.Context {
+	return context.WithValue(ctx, _whereKey, &where{Query: query, Args: args})
+}
+
+func _Where(ctx context.Context) *where {
+	w, ok := ctx.Value(_whereKey).(*where)
+	if !ok {
+		return nil
+	}
+	return w
+}
+
 func Loader[T any](column string, key func(T) string, options ...dataloadgen.Option) *dataloadgen.Loader[string, T] {
 	return LoaderCtx(column, func(ctx context.Context, t T) string {
 		return key(t)
@@ -20,6 +41,10 @@ func LoaderCtx[T any](column string, key func(context.Context, T) string, option
 		objs := []T{}
 		rs := make([]T, len(keys))
 		es := make([]error, len(keys))
+		where := _Where(ctx)
+		if where != nil {
+			db = db.Where(where.Query, where.Args...)
+		}
 		err := db.Where(column+" in (?)", keys).Find(&objs).Error
 		if err != nil {
 			for i := range keys {
@@ -81,6 +106,10 @@ func LoaderCtxs[T any](columns []string, key func(context.Context, T) []string, 
 			db = db.Where(v+" in (?)", css[i])
 		}
 
+		where := _Where(ctx)
+		if where != nil {
+			db = db.Where(where.Query, where.Args...)
+		}
 		err := db.Find(&objs).Error
 
 		if err != nil {
