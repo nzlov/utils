@@ -9,6 +9,12 @@ import (
 )
 
 func Loader[T any](column string, key func(T) string, options ...dataloadgen.Option) *dataloadgen.Loader[string, T] {
+	return LoaderCtx(column, func(ctx context.Context, t T) string {
+		return key(t)
+	}, options...)
+}
+
+func LoaderCtx[T any](column string, key func(context.Context, T) string, options ...dataloadgen.Option) *dataloadgen.Loader[string, T] {
 	return dataloadgen.NewLoader(func(ctx context.Context, keys []string) ([]T, []error) {
 		db := For(ctx)
 		objs := []T{}
@@ -22,7 +28,7 @@ func Loader[T any](column string, key func(T) string, options ...dataloadgen.Opt
 		} else {
 			rm := map[string]T{}
 			for _, v := range objs {
-				rm[key(v)] = v
+				rm[key(ctx, v)] = v
 			}
 			var ok bool
 			for i, v := range keys {
@@ -46,6 +52,12 @@ var (
 )
 
 func Loaders[T any](columns []string, key func(T) []string, options ...dataloadgen.Option) *dataloadgen.Loader[string, T] {
+	return LoaderCtxs(columns, func(ctx context.Context, t T) []string {
+		return key(t)
+	}, options...)
+}
+
+func LoaderCtxs[T any](columns []string, key func(context.Context, T) []string, options ...dataloadgen.Option) *dataloadgen.Loader[string, T] {
 	return dataloadgen.NewLoader(func(ctx context.Context, keys []string) ([]T, []error) {
 		db := For(ctx)
 		objs := []T{}
@@ -81,7 +93,7 @@ func Loaders[T any](columns []string, key func(T) []string, options ...dataloadg
 		} else {
 			rm := map[string]T{}
 			for _, v := range objs {
-				rm[strings.Join(key(v), "@nzlov@")] = v
+				rm[LoadersKey(key(ctx, v)...)] = v
 			}
 			var ok bool
 			for i, v := range keys {
