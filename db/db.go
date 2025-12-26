@@ -52,24 +52,24 @@ func (c *Config) DB() *gorm.DB {
 	return db
 }
 
-type contextKey string
+type ctxKey struct{}
 
-const _kvCtxKey contextKey = "nzlov@Gorm"
+var _ctxKey = ctxKey{}
 
 func For(ctx context.Context) *gorm.DB {
-	return ctx.Value(_kvCtxKey).(*gorm.DB).Session(&gorm.Session{})
+	return ctx.Value(_ctxKey).(*gorm.DB).Session(&gorm.Session{})
 }
 
 func (c *Config) Ctx(ctx context.Context) context.Context {
-	return context.WithValue(ctx, _kvCtxKey, c.DB())
+	return context.WithValue(ctx, _ctxKey, c.DB())
 }
 
 func Ctx(ctx context.Context, db *gorm.DB) context.Context {
-	return context.WithValue(ctx, _kvCtxKey, db)
+	return context.WithValue(ctx, _ctxKey, db)
 }
 
 func CtxNew(ctx context.Context) context.Context {
-	return context.WithValue(ctx, _kvCtxKey, For(ctx).Session(&gorm.Session{
+	return context.WithValue(ctx, _ctxKey, For(ctx).Session(&gorm.Session{
 		NewDB:       true,
 		Initialized: true,
 	}))

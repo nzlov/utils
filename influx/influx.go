@@ -36,12 +36,14 @@ func (c *Config) Query() api.QueryAPI {
 	return c.Influx().QueryAPI(c.Org)
 }
 
-var _kvCtxKey = "nzlov@Influxdb"
+type ctxKey struct{}
+
+var _ctxKey = ctxKey{}
 
 func For(ctx context.Context) *Config {
-	return ctx.Value(_kvCtxKey).(*Config)
+	return ctx.Value(_ctxKey).(*Config)
 }
 
 func (c *Config) Ctx(ctx context.Context) context.Context {
-	return context.WithValue(ctx, _kvCtxKey, c)
+	return context.WithValue(ctx, _ctxKey, c)
 }

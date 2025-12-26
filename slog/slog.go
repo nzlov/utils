@@ -6,7 +6,9 @@ import (
 	"log/slog"
 )
 
-const _ck = "@nzlov@config"
+type loggerKey struct{}
+
+var _loggerKey = loggerKey{}
 
 type Writer struct {
 	log *slog.Logger
@@ -26,7 +28,7 @@ func (w *Writer) Printf(f string, args ...any) {
 }
 
 func For(c context.Context) *slog.Logger {
-	cfg := c.Value(_ck)
+	cfg := c.Value(_loggerKey)
 	if cfg != nil {
 		return cfg.(*slog.Logger)
 	}
@@ -34,9 +36,9 @@ func For(c context.Context) *slog.Logger {
 }
 
 func Set(c context.Context, l *slog.Logger) context.Context {
-	return context.WithValue(c, _ck, l)
+	return context.WithValue(c, _loggerKey, l)
 }
 
 func SetDef(c context.Context) context.Context {
-	return context.WithValue(c, _ck, slog.Default())
+	return context.WithValue(c, _loggerKey, slog.Default())
 }
