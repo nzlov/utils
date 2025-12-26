@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"runtime"
+	"time"
 
 	"github.com/nzlov/utils/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -19,15 +22,26 @@ func A(ctx context.Context) {
 	ctx, span := otel.Start(ctx, "A", trace.WithAttributes(attribute.String("name", "AA")))
 	defer span.End()
 
+	B(ctx)
+
 	otel.Info(ctx, "aaa", "a", "A")
 	C(ctx)
 }
 
 func B(ctx context.Context) {
-	ctx, span := otel.Start(ctx, "B", trace.WithAttributes(attribute.String("name", "BB")))
-	defer span.End()
+	var pcs [10]uintptr
+	// skip [runtime.Callers, this function, this function's caller]
+	runtime.Callers(0, pcs[:])
 
-	C(ctx)
+	fs := runtime.CallersFrames(pcs[:])
+	for {
+		f, more := fs.Next()
+		fmt.Printf("code_source:%s:%d %s\n", f.File, f.Line, f.Function)
+		time.Sleep(time.Second)
+		if !more {
+			break
+		}
+	}
 }
 
 func C(ctx context.Context) {

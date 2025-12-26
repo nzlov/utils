@@ -104,7 +104,7 @@ func (cfg *Config) SetupOTelSDK(ctx context.Context) (shutdown func(context.Cont
 
 	slog.SetDefault(log.log)
 
-	Log = log
+	_Log = log
 
 	return shutdown, err
 }

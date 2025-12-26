@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime"
+	"strings"
 
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
@@ -25,14 +26,19 @@ type logger struct {
 }
 
 func (l *logger) sources() []any {
-	var pcs [1]uintptr
+	var pcs [3]uintptr
 	// skip [runtime.Callers, this function, this function's caller]
-	runtime.Callers(4, pcs[:])
+	runtime.Callers(2, pcs[:])
 
-	fs := runtime.CallersFrames([]uintptr{pcs[0]})
-	f, _ := fs.Next()
-	return []any{
-		"code_source", fmt.Sprintf("%s:%d %s", f.File, f.Line, f.Function),
+	fs := runtime.CallersFrames(pcs[:])
+	for {
+		f, _ := fs.Next()
+		if !strings.Contains(f.Function, "github.com/nzlov/utils") {
+			return []any{
+				"code_source", fmt.Sprintf("%s:%d %s", f.File, f.Line, f.Function),
+			}
+		}
+		fmt.Println("pass:", f.Function)
 	}
 }
 
@@ -70,7 +76,7 @@ func (l *logger) Printf(f string, args ...any) {
 	l.log.Info(fmt.Sprintf(f, args...))
 }
 
-var Log Logger
+var _Log Logger
 
 var (
 	Tracer trace.Tracer
@@ -83,12 +89,20 @@ type ctxLogKey struct{}
 
 var _ctxLogKey = &ctxLogKey{}
 
-func forLog(ctx context.Context) Logger {
+func For(ctx context.Context) Logger {
 	contextLog := ctx.Value(_ctxLogKey)
 	if contextLog != nil {
 		return contextLog.(Logger)
 	}
-	return Log
+	return _Log
+}
+
+func Log() Logger {
+	return _Log
+}
+
+func SetLog(l Logger) {
+	_Log = l
 }
 
 func Ctx(ctx context.Context, log Logger) context.Context {
@@ -96,15 +110,15 @@ func Ctx(ctx context.Context, log Logger) context.Context {
 }
 
 func Info(ctx context.Context, msg string, args ...any) {
-	forLog(ctx).Info(ctx, msg, args...)
+	For(ctx).Info(ctx, msg, args...)
 }
 
 func Error(ctx context.Context, msg string, args ...any) {
-	forLog(ctx).Error(ctx, msg, args...)
+	For(ctx).Error(ctx, msg, args...)
 }
 
 func Warn(ctx context.Context, msg string, args ...any) {
-	forLog(ctx).Warn(ctx, msg, args...)
+	For(ctx).Warn(ctx, msg, args...)
 }
 
 func With(ctx context.Context, args ...any) context.Context {
@@ -113,6 +127,6 @@ func With(ctx context.Context, args ...any) context.Context {
 		l := contextLog.(Logger).With(args...)
 		return Ctx(ctx, l)
 	}
-	l := Log.With(args...)
+	l := _Log.With(args...)
 	return Ctx(ctx, l)
 }
