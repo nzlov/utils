@@ -32,14 +32,17 @@ func (l *logger) sources() []any {
 
 	fs := runtime.CallersFrames(pcs[:])
 	for {
-		f, _ := fs.Next()
+		f, more := fs.Next()
 		if !strings.Contains(f.Function, "github.com/nzlov/utils") {
 			return []any{
 				"code_source", fmt.Sprintf("%s:%d %s", f.File, f.Line, f.Function),
 			}
 		}
-		fmt.Println("pass:", f.Function)
+		if !more {
+			break
+		}
 	}
+	return []any{}
 }
 
 func (l *logger) Info(ctx context.Context, msg string, args ...any) {
