@@ -27,7 +27,7 @@ type logger struct {
 func (l *logger) sources() []any {
 	var pcs [1]uintptr
 	// skip [runtime.Callers, this function, this function's caller]
-	runtime.Callers(3, pcs[:])
+	runtime.Callers(4, pcs[:])
 
 	fs := runtime.CallersFrames([]uintptr{pcs[0]})
 	f, _ := fs.Next()
@@ -70,14 +70,7 @@ func (l *logger) Printf(f string, args ...any) {
 	l.log.Info(fmt.Sprintf(f, args...))
 }
 
-var (
-	Log Logger
-
-	Info  func(ctx context.Context, msg string, args ...any)
-	Error func(ctx context.Context, msg string, args ...any)
-	Warn  func(ctx context.Context, msg string, args ...any)
-	With  func(args ...any) Logger
-)
+var Log Logger
 
 var (
 	Tracer trace.Tracer
@@ -90,19 +83,36 @@ type ctxLogKey struct{}
 
 var _ctxLogKey = &ctxLogKey{}
 
-func ForLog(ctx context.Context, args ...any) (Logger, context.Context) {
+func forLog(ctx context.Context) Logger {
 	contextLog := ctx.Value(_ctxLogKey)
 	if contextLog != nil {
-		if len(args) == 0 {
-			return contextLog.(Logger), ctx
-		}
-		l := contextLog.(Logger).With(args...)
-		return l, CtxLog(ctx, l)
+		return contextLog.(Logger)
 	}
-	l := With(args...)
-	return l, CtxLog(ctx, l)
+	return Log
 }
 
-func CtxLog(ctx context.Context, log Logger) context.Context {
+func Ctx(ctx context.Context, log Logger) context.Context {
 	return context.WithValue(ctx, _ctxLogKey, log)
+}
+
+func Info(ctx context.Context, msg string, args ...any) {
+	forLog(ctx).Info(ctx, msg, args...)
+}
+
+func Error(ctx context.Context, msg string, args ...any) {
+	forLog(ctx).Error(ctx, msg, args...)
+}
+
+func Warn(ctx context.Context, msg string, args ...any) {
+	forLog(ctx).Warn(ctx, msg, args...)
+}
+
+func With(ctx context.Context, args ...any) context.Context {
+	contextLog := ctx.Value(_ctxLogKey)
+	if contextLog != nil {
+		l := contextLog.(Logger).With(args...)
+		return Ctx(ctx, l)
+	}
+	l := Log.With(args...)
+	return Ctx(ctx, l)
 }

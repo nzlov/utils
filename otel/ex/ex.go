@@ -20,14 +20,13 @@ func A(ctx context.Context) {
 	defer span.End()
 
 	otel.Info(ctx, "aaa", "a", "A")
-	B(ctx)
+	C(ctx)
 }
 
 func B(ctx context.Context) {
 	ctx, span := otel.Start(ctx, "B", trace.WithAttributes(attribute.String("name", "BB")))
 	defer span.End()
 
-	otel.With("b", "B").Info(ctx, "bbb")
 	C(ctx)
 }
 
@@ -35,9 +34,9 @@ func C(ctx context.Context) {
 	ctx, span := otel.Start(ctx, "C", trace.WithAttributes(attribute.String("name", "CC")))
 	defer span.End()
 
-	log, ctx := otel.ForLog(ctx, "c", "C")
+	ctx = otel.With(ctx, "c", "C")
 
-	log.Info(ctx, "ccc", "c1", "c")
+	otel.Info(ctx, "ccc", "c1", "c")
 	D(ctx)
 }
 
@@ -45,9 +44,9 @@ func D(ctx context.Context) {
 	ctx, span := otel.Start(ctx, "D", trace.WithAttributes(attribute.String("name", "DD")))
 	defer span.End()
 
-	log, ctx := otel.ForLog(ctx, "d", "D")
+	ctx = otel.With(ctx, "d", "D")
 
-	log.Info(ctx, "ddd", "d1", "d")
+	otel.Info(ctx, "ddd", "d1", "d")
 }
 
 func (a *App) Shutdown(ctx context.Context) error {

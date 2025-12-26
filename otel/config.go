@@ -106,11 +106,6 @@ func (cfg *Config) SetupOTelSDK(ctx context.Context) (shutdown func(context.Cont
 
 	Log = log
 
-	Info = Log.Info
-	Error = Log.Error
-	Warn = Log.Warn
-	With = Log.With
-
 	return shutdown, err
 }
 
