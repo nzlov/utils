@@ -68,7 +68,7 @@ func (cfg *Config) SetupOTelSDK(ctx context.Context) (shutdown func(context.Cont
 		otel.SetTracerProvider(tracerProvider)
 	}
 
-	if !cfg.TraceDisable {
+	if !cfg.MetricDisable {
 		// Set up meter provider.
 		meterProvider, err := newMeterProvider(ctx, cfg)
 		if err != nil {
