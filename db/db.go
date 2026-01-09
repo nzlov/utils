@@ -144,7 +144,7 @@ func ExecuteSQLFilesFromEmbed(ctx context.Context, fs embed.FS, dir string) erro
 		}
 
 		// Read the SQL file content
-		content, err := fs.ReadFile(filepath.Join(dir, file.Name()))
+		content, err := fs.ReadFile(dir + "/" + file.Name())
 		if err != nil {
 			return fmt.Errorf("failed to read SQL file: %v", err)
 		}
