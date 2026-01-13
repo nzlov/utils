@@ -10,6 +10,10 @@ import (
 	glogger "gorm.io/gorm/logger"
 )
 
+func init() {
+	otel.SkipStr("gorm.io")
+}
+
 type GormLogger struct {
 	LogLevel                  glogger.LogLevel
 	SlowThreshold             time.Duration

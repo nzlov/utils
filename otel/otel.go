@@ -25,15 +25,30 @@ type logger struct {
 	source bool
 }
 
+var skipstr = []string{
+	"github.com/nzlov/utils",
+}
+
+func SkipStr(s string) {
+	skipstr = append(skipstr, s)
+}
+
 func (l *logger) sources() []any {
-	var pcs [3]uintptr
+	var pcs [10]uintptr
 	// skip [runtime.Callers, this function, this function's caller]
 	runtime.Callers(2, pcs[:])
 
 	fs := runtime.CallersFrames(pcs[:])
 	for {
 		f, more := fs.Next()
-		if !strings.Contains(f.Function, "github.com/nzlov/utils") {
+		pass := false
+		for _, v := range skipstr {
+			if strings.Contains(f.Function, v) {
+				pass = true
+				break
+			}
+		}
+		if !pass {
 			return []any{
 				"code_source", fmt.Sprintf("%s:%d %s", f.File, f.Line, f.Function),
 			}
