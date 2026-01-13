@@ -72,8 +72,8 @@ func main() {
 		Name:          "tot",
 		Type:          "httpc",
 		LogSource:     true,
-		MetricDisable: true,
-		TraceDisable:  true,
+		MetricDisable: false,
+		TraceDisable:  false,
 	}
 	if err := cfg.Run(new(App)); err != nil {
 		panic(err)
