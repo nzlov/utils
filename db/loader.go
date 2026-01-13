@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/vikstrous/dataloadgen"
+	"gorm.io/gorm"
 )
 
 type whereKey string
@@ -37,15 +38,14 @@ func Loader[T any](column string, key func(T) string, options ...dataloadgen.Opt
 
 func LoaderCtx[T any](column string, key func(context.Context, T) string, options ...dataloadgen.Option) *dataloadgen.Loader[string, T] {
 	return dataloadgen.NewLoader(func(ctx context.Context, keys []string) ([]T, []error) {
-		db := For(ctx)
-		objs := []T{}
+		db := gorm.G[T](For(ctx)).Scopes()
 		rs := make([]T, len(keys))
 		es := make([]error, len(keys))
 		where := _Where(ctx)
 		if where != nil {
 			db = db.Where(where.Query, where.Args...)
 		}
-		err := db.Where(column+" in (?)", keys).Find(&objs).Error
+		objs, err := db.Where(column+" in (?)", keys).Find(ctx)
 		if err != nil {
 			for i := range keys {
 				es[i] = err
@@ -84,8 +84,8 @@ func Loaders[T any](columns []string, key func(T) []string, options ...dataloadg
 
 func LoaderCtxs[T any](columns []string, key func(context.Context, T) []string, options ...dataloadgen.Option) *dataloadgen.Loader[string, T] {
 	return dataloadgen.NewLoader(func(ctx context.Context, keys []string) ([]T, []error) {
-		db := For(ctx)
-		objs := []T{}
+		db := gorm.G[T](For(ctx)).Scopes()
+
 		rs := make([]T, len(keys))
 		es := make([]error, len(keys))
 
@@ -110,7 +110,8 @@ func LoaderCtxs[T any](columns []string, key func(context.Context, T) []string, 
 		if where != nil {
 			db = db.Where(where.Query, where.Args...)
 		}
-		err := db.Find(&objs).Error
+
+		objs, err := db.Find(ctx)
 
 		if err != nil {
 			for i := range keys {
