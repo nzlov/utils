@@ -18,12 +18,27 @@ type where struct {
 	Args  []any
 }
 
+type wheres []where
+
 func WhereCtx(ctx context.Context, query string, args ...any) context.Context {
-	return context.WithValue(ctx, _whereKey, &where{Query: query, Args: args})
+	ws := GetCtxWheres(ctx)
+	ws = append(ws, where{Query: query, Args: args})
+	return context.WithValue(ctx, _whereKey, ws)
 }
 
-func _Where(ctx context.Context) *where {
-	w, ok := ctx.Value(_whereKey).(*where)
+// WheresCtxSet 设置多个 where 条件（替换现有的）
+func WheresCtxSet(ctx context.Context, ws wheres) context.Context {
+	return context.WithValue(ctx, _whereKey, ws)
+}
+
+// WheresCtxClear 清除所有 where 条件
+func WheresCtxClear(ctx context.Context) context.Context {
+	return context.WithValue(ctx, _whereKey, nil)
+}
+
+// GetCtxWheres 获取当前上下文中的所有 where 条件
+func GetCtxWheres(ctx context.Context) wheres {
+	w, ok := ctx.Value(_whereKey).(wheres)
 	if !ok {
 		return nil
 	}
@@ -41,9 +56,9 @@ func LoaderCtx[T any](column string, key func(context.Context, T) string, option
 		db := gorm.G[T](For(ctx)).Scopes()
 		rs := make([]T, len(keys))
 		es := make([]error, len(keys))
-		where := _Where(ctx)
-		if where != nil {
-			db = db.Where(where.Query, where.Args...)
+		wheres := GetCtxWheres(ctx)
+		for _, w := range wheres {
+			db = db.Where(w.Query, w.Args...)
 		}
 		objs, err := db.Where(column+" in (?)", keys).Find(ctx)
 		if err != nil {
@@ -106,9 +121,9 @@ func LoaderCtxs[T any](columns []string, key func(context.Context, T) []string, 
 			db = db.Where(v+" in (?)", css[i])
 		}
 
-		where := _Where(ctx)
-		if where != nil {
-			db = db.Where(where.Query, where.Args...)
+		wheres := GetCtxWheres(ctx)
+		for _, w := range wheres {
+			db = db.Where(w.Query, w.Args...)
 		}
 
 		objs, err := db.Find(ctx)
