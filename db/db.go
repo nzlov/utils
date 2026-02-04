@@ -152,12 +152,12 @@ func ExecuteSQLFilesFromEmbed(ctx context.Context, fs embed.FS, dir string) erro
 		// Execute the SQL and record history in a transaction
 		err = db.Transaction(func(tx *gorm.DB) error {
 			sqlLines := strings.Split(string(content), "\n")
-			for _, line := range sqlLines {
+			for n, line := range sqlLines {
 				if strings.TrimSpace(line) == "" {
 					continue // Skip empty lines
 				}
 				if err := tx.Exec(line).Error; err != nil {
-					return fmt.Errorf("failed to execute SQL line in file %s: %v", file.Name(), err)
+					return fmt.Errorf("failed to execute SQL line in file %s:%d, %v", file.Name(), n, err)
 				}
 			}
 
