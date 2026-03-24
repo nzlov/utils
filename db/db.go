@@ -7,15 +7,19 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/glebarez/sqlite"
+	"golang.org/x/sync/errgroup"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+var ErrNilContext = errors.New("nil context")
 
 type Model struct {
 	CreatedAt time.Time
@@ -180,27 +184,102 @@ type DBModelID interface {
 	GetID() uint
 }
 
-func DBAll[T DBModelID](db *gorm.DB, cb func(T) error) error {
-	lastid := uint(0)
+type DBAllConfig struct {
+	PageSize    int
+	Concurrency int
+}
 
-	objs := []T{}
+type DBAllOption func(*DBAllConfig)
 
-	for {
-		if err := db.Where("id > ?", lastid).Order("id").Limit(100).Find(&objs).Error; err != nil {
-			return err
-		}
-		if len(objs) == 0 {
-			break
-		}
-		for _, v := range objs {
-			if err := cb(v); err != nil {
-				return err
-			}
-			lastid = v.GetID()
-		}
-		if len(objs) != 100 {
-			break
+// WithDBAllPageSize 允许按需调整分页大小，避免不同表规模下固定分页带来额外压力。
+func WithDBAllPageSize(size int) DBAllOption {
+	return func(cfg *DBAllConfig) {
+		if size > 0 {
+			cfg.PageSize = size
 		}
 	}
+}
+
+// WithDBAllConcurrency 允许按需调整回调并发数，兼顾吞吐和下游处理能力。
+// channel 缓冲区会与并发数保持一致，避免生产速度远高于消费速度时积压过多内存。
+func WithDBAllConcurrency(concurrency int) DBAllOption {
+	return func(cfg *DBAllConfig) {
+		if concurrency > 0 {
+			cfg.Concurrency = concurrency
+		}
+	}
+}
+
+// DBAll 按主键递增分页读取数据，并将结果分发给固定数量的工作协程并发执行回调。
+// 通过透传 context 可以让外部取消信号和内部错误更快地停止后续分页与回调处理。
+func DBAll[T DBModelID](ctx context.Context, cb func(context.Context, T) error, ops ...DBAllOption) error {
+	defaultConcurrency := runtime.NumCPU() * 2
+	if defaultConcurrency <= 0 {
+		defaultConcurrency = 1
+	}
+
+	cfg := DBAllConfig{
+		PageSize:    100,
+		Concurrency: defaultConcurrency,
+	}
+	for _, op := range ops {
+		op(&cfg)
+	}
+
+	if ctx == nil {
+		return ErrNilContext
+	}
+
+	db := For(ctx)
+	g, ctx := errgroup.WithContext(ctx)
+	lastid := uint(0)
+	ch := make(chan T, cfg.Concurrency)
+
+	for i := 0; i < cfg.Concurrency; i++ {
+		g.Go(func() error {
+			for v := range ch {
+				if err := cb(ctx, v); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+
+	g.Go(func() error {
+		defer close(ch)
+
+		for {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+
+			objs := make([]T, 0, cfg.PageSize)
+			if err := db.Where("id > ?", lastid).Order("id").Limit(cfg.PageSize).Find(&objs).Error; err != nil {
+				return err
+			}
+			if len(objs) == 0 {
+				return nil
+			}
+
+			for _, v := range objs {
+				lastid = v.GetID()
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case ch <- v:
+				}
+			}
+
+			if len(objs) != cfg.PageSize {
+				return nil
+			}
+		}
+	})
+
+	if err := g.Wait(); err != nil {
+		return err
+	}
+
 	return nil
 }
